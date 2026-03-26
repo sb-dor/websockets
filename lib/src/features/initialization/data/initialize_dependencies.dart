@@ -8,10 +8,10 @@ import 'package:websockets/src/common/constant/config.dart';
 import 'package:websockets/src/common/constant/pubspec.yaml.g.dart';
 import 'package:websockets/src/common/controller/controller_observer.dart';
 import 'package:websockets/src/common/model/app_metadata.dart';
+import 'package:websockets/src/common/util/pusher_client.dart';
 import 'package:websockets/src/common/util/screen_util.dart';
 import 'package:websockets/src/features/authentication/controller/authentication_controller.dart';
 import 'package:websockets/src/features/authentication/data/authentication_repository.dart';
-import 'package:websockets/src/features/chat/data/chat_repository.dart';
 import 'package:websockets/src/features/initialization/data/platform/platform_initialization.dart';
 import 'package:websockets/src/features/initialization/models/dependencies.dart';
 import 'package:websockets/src/features/lobby/data/lobby_repository.dart';
@@ -66,23 +66,30 @@ final Map<String, _InitializationStep> _initializationSteps = <String, _Initiali
   'Get remote config': (_) {},
   'Restore settings': (_) {},
   'Initialize Dio': (dependencies) {
-    dependencies.dio = Dio(
-      BaseOptions(
-        baseUrl: Config.apiBaseUrl,
-        connectTimeout: Config.apiConnectTimeout,
-        receiveTimeout: Config.apiReceiveTimeout,
-      ),
-    )..interceptors.add(
-        InterceptorsWrapper(
-          onRequest: (options, handler) {
-            final token = dependencies.authenticationController.state.user?.token;
-            if (token != null) {
-              options.headers['Authorization'] = 'Bearer $token';
-            }
-            handler.next(options);
-          },
-        ),
-      );
+    dependencies.dio =
+        Dio(
+            BaseOptions(
+              baseUrl: Config.apiBaseUrl,
+              connectTimeout: Config.apiConnectTimeout,
+              receiveTimeout: Config.apiReceiveTimeout,
+            ),
+          )
+          ..interceptors.add(
+            InterceptorsWrapper(
+              onRequest: (options, handler) {
+                final token = dependencies.authenticationController.state.user?.token;
+                if (token != null) {
+                  options.headers['Authorization'] = 'Bearer $token';
+                }
+                handler.next(options);
+              },
+            ),
+          );
+  },
+  'Initialize Pusher client': (dependencies) async {
+    final pusherClient = PusherClient();
+    await pusherClient.initilize();
+    dependencies.pusherClient = pusherClient;
   },
   'Prepare authentication controller': (dependencies) {
     dependencies.authenticationController = AuthenticationController(
@@ -92,7 +99,5 @@ final Map<String, _InitializationStep> _initializationSteps = <String, _Initiali
   'Restore session': (dependencies) => dependencies.authenticationController.restoreSession(),
   'Initialize lobby repository': (dependencies) =>
       dependencies.lobbyRepository = LobbyRepositoryImpl(dio: dependencies.dio),
-  'Initialize chat repository': (dependencies) =>
-      dependencies.chatRepository = ChatRepositoryImpl(dio: dependencies.dio),
   // The 'Shrink database' step will only be included in non-release build
 };

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dart_pusher_channels/dart_pusher_channels.dart';
 import 'package:dio/dio.dart';
 import 'package:websockets/src/common/constant/config.dart';
+import 'package:websockets/src/common/util/pusher_client.dart';
 import 'package:websockets/src/features/chat/models/message.dart';
 
 abstract interface class IChatRepository {
@@ -19,13 +20,14 @@ abstract interface class IChatRepository {
 }
 
 class ChatRepositoryImpl implements IChatRepository {
-  ChatRepositoryImpl({required Dio dio}) : _dio = dio;
+  ChatRepositoryImpl({required final Dio dio, required final PusherClient pusherClient})
+    : _dio = dio,
+      _pusherClient = pusherClient;
 
   final Dio _dio;
-  PusherChannelsClient? _client;
+  final PusherClient _pusherClient;
   StreamSubscription<void>? _connectionSub;
   String? _authToken;
-  final Map<String, StreamController<Message>> _controllers = {};
   final Map<String, PresenceChannel> _channels = {};
 
   @override
@@ -39,42 +41,15 @@ class ChatRepositoryImpl implements IChatRepository {
       ch.unsubscribe();
     }
     _channels.clear();
-    for (final ctrl in _controllers.values) {
-      await ctrl.close();
-    }
-    _controllers.clear();
-    _client?.dispose();
-    _client = null;
 
     _authToken = authToken;
 
-    const options = PusherChannelsOptions.fromHost(
-      scheme: Config.wsTls ? 'wss' : 'ws',
-      host: Config.wsHost,
-      key: Config.wsKey,
-      port: Config.wsPort,
-    );
-
-    _client = PusherChannelsClient.websocket(
-      options: options,
-      connectionErrorHandler: (exception, trace, refresh) {
-        // Don't auto-retry — let the timeout surface the error to the controller.
-      },
-    );
-
     // Re-subscribe all channels when connection is (re-)established.
-    _connectionSub = _client!.onConnectionEstablished.listen((_) {
+    _connectionSub = _pusherClient.client.onConnectionEstablished.listen((_) {
       for (final ch in _channels.values) {
         ch.subscribeIfNotUnsubscribed();
       }
     });
-
-    unawaited(_client!.connect());
-    // Wait until connected, fail fast if the server is unreachable.
-    await _client!.onConnectionEstablished.first.timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => throw Exception('WebSocket connection timed out'),
-    );
   }
 
   @override
@@ -94,9 +69,9 @@ class ChatRepositoryImpl implements IChatRepository {
   @override
   Stream<Message> subscribeToRoom({required String roomCode}) {
     final streamController = StreamController<Message>.broadcast();
-    _controllers[roomCode] = streamController;
 
-    Future<void>(() async {
+    Future<void> initialize() async {
+      if (streamController.isClosed) return;
       try {
         final authDelegate =
             EndpointAuthorizableChannelTokenAuthorizationDelegate.forPresenceChannel(
@@ -104,7 +79,7 @@ class ChatRepositoryImpl implements IChatRepository {
               headers: {'Authorization': 'Bearer $_authToken'},
             );
 
-        final channel = _client!.presenceChannel(
+        final channel = _pusherClient.client.presenceChannel(
           'presence-room.$roomCode',
           authorizationDelegate: authDelegate,
         );
@@ -129,7 +104,9 @@ class ChatRepositoryImpl implements IChatRepository {
         _channels.remove(roomCode)?.unsubscribe();
         if (!streamController.isClosed) await streamController.close();
       }
-    }).ignore();
+    }
+
+    initialize();
 
     return streamController.stream;
   }
@@ -137,7 +114,6 @@ class ChatRepositoryImpl implements IChatRepository {
   @override
   Future<void> unsubscribe({required String roomCode}) async {
     _channels.remove(roomCode)?.unsubscribe();
-    await _controllers.remove(roomCode)?.close();
   }
 
   @override
@@ -148,11 +124,5 @@ class ChatRepositoryImpl implements IChatRepository {
       channel.unsubscribe();
     }
     _channels.clear();
-    for (final ctrl in _controllers.values) {
-      await ctrl.close();
-    }
-    _controllers.clear();
-    _client?.dispose();
-    _client = null;
   }
 }

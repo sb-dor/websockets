@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:websockets/src/common/model/app_metadata.dart';
+import 'package:websockets/src/common/util/pusher_client.dart';
 import 'package:websockets/src/features/authentication/controller/authentication_controller.dart';
-import 'package:websockets/src/features/chat/data/chat_repository.dart';
 import 'package:websockets/src/features/initialization/widget/dependencies_scope.dart';
 import 'package:websockets/src/features/lobby/data/lobby_repository.dart';
 
@@ -28,14 +28,13 @@ class Dependencies {
   /// Shared Dio HTTP client (base URL + auth interceptor)
   late final Dio dio;
 
+  late final PusherClient pusherClient;
+
   /// Authentication controller
   late final AuthenticationController authenticationController;
 
   /// Lobby repository
   late final ILobbyRepository lobbyRepository;
-
-  /// Chat repository
-  late final IChatRepository chatRepository;
 
   @override
   String toString() => 'Dependencies{}';

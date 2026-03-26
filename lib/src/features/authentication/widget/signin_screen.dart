@@ -40,10 +40,7 @@ class _SignInScreenState extends State<SignInScreen> {
   void _submit() {
     final controller = AuthenticationScope.controllerOf(context);
     if (_isLogin) {
-      controller.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      controller.login(email: _emailController.text.trim(), password: _passwordController.text);
     } else {
       controller.register(
         name: _nameController.text.trim(),
@@ -138,8 +135,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               icon: Icon(
                                 _obscurePassword ? Icons.visibility_off : Icons.visibility,
                               ),
-                              onPressed: () =>
-                                  setState(() => _obscurePassword = !_obscurePassword),
+                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
                           ),
                         ),

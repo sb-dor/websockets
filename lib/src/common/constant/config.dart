@@ -26,10 +26,7 @@ abstract final class Config {
   // --- WEBSOCKET (Reverb) --- //
 
   /// Reverb / Pusher app key (matches REVERB_APP_KEY in backend .env).
-  static const String wsKey = String.fromEnvironment(
-    'WS_KEY',
-    defaultValue: '',
-  );
+  static const String wsKey = String.fromEnvironment('WS_KEY', defaultValue: '');
 
   /// Reverb WebSocket host.
   static const String wsHost = String.fromEnvironment('WS_HOST', defaultValue: 'localhost');

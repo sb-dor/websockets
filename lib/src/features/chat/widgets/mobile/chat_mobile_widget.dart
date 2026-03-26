@@ -35,10 +35,7 @@ class _ChatMobileWidgetState extends State<ChatMobileWidget> {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
     _inputController.clear();
-    ChatConfigWidget.messagesControllerOf(context).send(
-      roomCode: widget.room.code,
-      content: text,
-    );
+    ChatConfigWidget.messagesControllerOf(context).send(roomCode: widget.room.code, content: text);
   }
 
   @override
@@ -56,9 +53,9 @@ class _ChatMobileWidgetState extends State<ChatMobileWidget> {
             child: GestureDetector(
               onTap: () {
                 Clipboard.setData(ClipboardData(text: widget.room.code));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Room code copied!')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Room code copied!')));
               },
               child: Chip(label: Text(widget.room.code)),
             ),
@@ -69,11 +66,7 @@ class _ChatMobileWidgetState extends State<ChatMobileWidget> {
         Chat$ConnectingState() || Chat$InitialState() => const Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 12),
-              Text('Connecting...'),
-            ],
+            children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Connecting...')],
           ),
         ),
         Chat$ErrorState(:final message) => Center(
@@ -84,10 +77,10 @@ class _ChatMobileWidgetState extends State<ChatMobileWidget> {
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () {
-                  final token =
-                      AuthenticationScope.userOf(context, listen: false)?.token ?? '';
-                  ChatConfigWidget.controllerOf(context)
-                      .connect(room: widget.room, authToken: token);
+                  final token = AuthenticationScope.userOf(context, listen: false)?.token ?? '';
+                  ChatConfigWidget.controllerOf(
+                    context,
+                  ).connect(room: widget.room, authToken: token);
                 },
                 child: const Text('Retry'),
               ),
@@ -96,12 +89,10 @@ class _ChatMobileWidgetState extends State<ChatMobileWidget> {
         ),
         Chat$ConnectedState(:final messages) => Column(
           children: [
-            Expanded(child: _MessageList(messages: messages, scrollController: _scrollController)),
-            _InputBar(
-              controller: _inputController,
-              isSending: isSending,
-              onSend: _send,
+            Expanded(
+              child: _MessageList(messages: messages, scrollController: _scrollController),
             ),
+            _InputBar(controller: _inputController, isSending: isSending, onSend: _send),
           ],
         ),
         _ => const SizedBox.shrink(),

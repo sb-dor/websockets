@@ -3,6 +3,7 @@ import 'package:websockets/src/common/util/screen_util.dart';
 import 'package:websockets/src/features/authentication/widget/authentication_scope.dart';
 import 'package:websockets/src/features/chat/controller/chat_controller.dart';
 import 'package:websockets/src/features/chat/controller/chat_messages_controller.dart';
+import 'package:websockets/src/features/chat/data/chat_repository.dart';
 import 'package:websockets/src/features/chat/widgets/desktop/chat_desktop_widget.dart';
 import 'package:websockets/src/features/chat/widgets/mobile/chat_mobile_widget.dart';
 import 'package:websockets/src/features/initialization/models/dependencies.dart';
@@ -39,10 +40,9 @@ class _ChatConfigWidgetState extends State<ChatConfigWidget> {
   void initState() {
     super.initState();
     final deps = Dependencies.of(context);
-    _chatController = ChatController(repository: deps.chatRepository)
-      ..addListener(_rebuild);
-    _messagesController = ChatMessagesController(repository: deps.chatRepository)
-      ..addListener(_rebuild);
+    final chatrepository = ChatRepositoryImpl(dio: deps.dio, pusherClient: deps.pusherClient);
+    _chatController = ChatController(repository: chatrepository)..addListener(_rebuild);
+    _messagesController = ChatMessagesController(repository: chatrepository)..addListener(_rebuild);
 
     final token = AuthenticationScope.userOf(context, listen: false)?.token ?? '';
     _chatController.connect(room: widget.room, authToken: token);

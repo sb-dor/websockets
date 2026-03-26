@@ -23,7 +23,7 @@ void main() => group('Widget', () {
   testWidgets('App', (tester) async {
     final dependencies = FakeDependencies()
       ..authenticationController = AuthenticationController(
-        repository: AuthenticationRepositoryFake(),
+        repository: AuthenticationFakeRepositoryImpl(),
       );
     await tester.pumpWidget(
       dependencies.inject(

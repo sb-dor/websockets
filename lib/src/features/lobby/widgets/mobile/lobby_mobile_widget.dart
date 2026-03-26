@@ -74,10 +74,7 @@ class LobbyMobileWidget extends StatelessWidget {
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Room name',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(labelText: 'Room name', border: OutlineInputBorder()),
           onSubmitted: (v) {
             Navigator.pop(ctx);
             if (v.trim().isNotEmpty) controller.createRoom(v.trim());

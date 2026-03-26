@@ -12,13 +12,10 @@ sealed class ChatState {
 
   const factory ChatState.initial() = Chat$InitialState;
   const factory ChatState.connecting() = Chat$ConnectingState;
-  const factory ChatState.connected({
-    required Room room,
-    required List<Message> messages,
-  }) = Chat$ConnectedState;
+  const factory ChatState.connected({required Room room, required List<Message> messages}) =
+      Chat$ConnectedState;
   const factory ChatState.error(String message) = Chat$ErrorState;
   const factory ChatState.disconnected() = Chat$DisconnectedState;
-
 }
 
 final class Chat$InitialState extends ChatState {
@@ -70,19 +67,21 @@ class ChatController extends StateController<ChatState> with SequentialControlle
     final history = await _repository.getHistory(roomCode: room.code);
     setState(ChatState.connected(room: room, messages: history));
 
-    _messageSub = _repository.subscribeToRoom(roomCode: room.code).listen(
-      (message) {
-        final current = state;
-        if (current is Chat$ConnectedState) {
-          setState(current.copyWith(messages: [...current.messages, message]));
-        }
-      },
-      onError: (Object e) {
-        if (state is Chat$ConnectedState) {
-          setState(ChatState.error(e.toString()));
-        }
-      },
-    );
+    _messageSub = _repository
+        .subscribeToRoom(roomCode: room.code)
+        .listen(
+          (message) {
+            final current = state;
+            if (current is Chat$ConnectedState) {
+              setState(current.copyWith(messages: [...current.messages, message]));
+            }
+          },
+          onError: (Object e) {
+            if (state is Chat$ConnectedState) {
+              setState(ChatState.error(e.toString()));
+            }
+          },
+        );
   });
 
   void disconnect() => handle(() async {

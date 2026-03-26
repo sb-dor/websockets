@@ -40,8 +40,7 @@ class Message {
   final MessageUser user;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) || (other is Message && id == other.id);
+  bool operator ==(Object other) => identical(this, other) || (other is Message && id == other.id);
 
   @override
   int get hashCode => id.hashCode;
