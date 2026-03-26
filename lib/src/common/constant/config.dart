@@ -17,11 +17,28 @@ abstract final class Config {
   // --- API --- //
 
   /// Base url for api.
-  /// e.g. https://api.domain.tld
+  /// e.g. http://localhost:8000
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.domain.tld',
+    defaultValue: 'http://localhost:8000',
   );
+
+  // --- WEBSOCKET (Reverb) --- //
+
+  /// Reverb / Pusher app key (matches REVERB_APP_KEY in backend .env).
+  static const String wsKey = String.fromEnvironment(
+    'WS_KEY',
+    defaultValue: '',
+  );
+
+  /// Reverb WebSocket host.
+  static const String wsHost = String.fromEnvironment('WS_HOST', defaultValue: 'localhost');
+
+  /// Reverb WebSocket port.
+  static const int wsPort = int.fromEnvironment('WS_PORT', defaultValue: 8080);
+
+  /// Use TLS for WebSocket (false in dev, true in prod).
+  static const bool wsTls = bool.fromEnvironment('WS_TLS', defaultValue: false);
 
   /// Timeout in milliseconds for opening url.
   /// [Dio] will throw the [DioException] with [DioExceptionType.connectTimeout] type when time out.

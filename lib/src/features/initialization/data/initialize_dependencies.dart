@@ -1,16 +1,20 @@
 import 'dart:async';
 
 import 'package:control/control.dart';
+import 'package:dio/dio.dart';
 import 'package:l/l.dart';
 import 'package:platform_info/platform_info.dart';
+import 'package:websockets/src/common/constant/config.dart';
 import 'package:websockets/src/common/constant/pubspec.yaml.g.dart';
 import 'package:websockets/src/common/controller/controller_observer.dart';
 import 'package:websockets/src/common/model/app_metadata.dart';
 import 'package:websockets/src/common/util/screen_util.dart';
 import 'package:websockets/src/features/authentication/controller/authentication_controller.dart';
 import 'package:websockets/src/features/authentication/data/authentication_repository.dart';
+import 'package:websockets/src/features/chat/data/chat_repository.dart';
 import 'package:websockets/src/features/initialization/data/platform/platform_initialization.dart';
 import 'package:websockets/src/features/initialization/models/dependencies.dart';
+import 'package:websockets/src/features/lobby/data/lobby_repository.dart';
 
 /// Initializes the app and returns a [Dependencies] object
 Future<Dependencies> $initializeDependencies({
@@ -61,7 +65,34 @@ final Map<String, _InitializationStep> _initializationSteps = <String, _Initiali
   'Log app open': (_) {},
   'Get remote config': (_) {},
   'Restore settings': (_) {},
-  'Prepare authentication controller': (dependencies) => dependencies.authenticationController =
-      AuthenticationController(repository: AuthenticationRepositoryImpl()),
+  'Initialize Dio': (dependencies) {
+    dependencies.dio = Dio(
+      BaseOptions(
+        baseUrl: Config.apiBaseUrl,
+        connectTimeout: Config.apiConnectTimeout,
+        receiveTimeout: Config.apiReceiveTimeout,
+      ),
+    )..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            final token = dependencies.authenticationController.state.user?.token;
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+            handler.next(options);
+          },
+        ),
+      );
+  },
+  'Prepare authentication controller': (dependencies) {
+    dependencies.authenticationController = AuthenticationController(
+      repository: AuthenticationRepositoryImpl(dio: dependencies.dio),
+    );
+  },
+  'Restore session': (dependencies) => dependencies.authenticationController.restoreSession(),
+  'Initialize lobby repository': (dependencies) =>
+      dependencies.lobbyRepository = LobbyRepositoryImpl(dio: dependencies.dio),
+  'Initialize chat repository': (dependencies) =>
+      dependencies.chatRepository = ChatRepositoryImpl(dio: dependencies.dio),
   // The 'Shrink database' step will only be included in non-release build
 };

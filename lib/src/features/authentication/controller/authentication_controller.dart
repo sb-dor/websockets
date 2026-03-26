@@ -86,13 +86,32 @@ class AuthenticationController extends StateController<AuthenticationState>
 
   final IAuthenticationRepository repository;
 
-  void signIn(String displayName) => handle(() async {
-    final uid = DateTime.now().millisecondsSinceEpoch % 100000 + 1;
-    setState(AuthenticationState.authenticated(User(id: uid, name: displayName.trim())));
+  void login({required String email, required String password}) => handle(() async {
+    setState(const AuthenticationState.inProgress());
+    final user = await repository.login(email: email, password: password);
+    setState(AuthenticationState.authenticated(user));
   });
 
+  void register({required String name, required String email, required String password}) =>
+      handle(() async {
+        setState(const AuthenticationState.inProgress());
+        final user = await repository.register(name: name, email: email, password: password);
+        setState(AuthenticationState.authenticated(user));
+      });
+
   void logout() => handle(() async {
-    if (state is! Authentication$AuthenticatedState) return;
+    final user = state.user;
+    if (user == null) return;
+    setState(const AuthenticationState.inProgress());
+    await repository.logout(token: user.token ?? '');
     setState(const AuthenticationState.idle());
+  });
+
+  /// Called at app startup — silently restores session from SharedPreferences.
+  void restoreSession() => handle(() async {
+    final user = await repository.restoreSession();
+    if (user != null) {
+      setState(AuthenticationState.authenticated(user));
+    }
   });
 }

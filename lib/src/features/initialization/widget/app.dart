@@ -68,7 +68,7 @@ class _AppState extends State<App> with RouterStateMixin {
           enable: !kReleaseMode,
           octopus: router,
           child: PerformanceOverlayTool(
-            enabled: !kReleaseMode,
+            enabled: false,
             child: Banner(
               location: BannerLocation.topEnd,
               message: _buildBannerMessage(),
