@@ -4,6 +4,7 @@ import 'package:control/control.dart';
 import 'package:dio/dio.dart';
 import 'package:l/l.dart';
 import 'package:platform_info/platform_info.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:websockets/src/common/constant/config.dart';
 import 'package:websockets/src/common/constant/pubspec.yaml.g.dart';
 import 'package:websockets/src/common/controller/controller_observer.dart';
@@ -42,6 +43,8 @@ typedef _InitializationStep = FutureOr<void> Function(Dependencies dependencies)
 
 final Map<String, _InitializationStep> _initializationSteps = <String, _InitializationStep>{
   'Platform pre-initialization': (_) => $platformInitialization(),
+  'Initialize sharedPreferences': (dependencies) async =>
+      dependencies.sharedPreferences = await SharedPreferences.getInstance(),
   'Creating app metadata': (dependencies) => dependencies.metadata = AppMetadata(
     isWeb: platform.js,
     isRelease: platform.buildMode.release,
@@ -77,7 +80,7 @@ final Map<String, _InitializationStep> _initializationSteps = <String, _Initiali
           ..interceptors.add(
             InterceptorsWrapper(
               onRequest: (options, handler) {
-                final token = dependencies.authenticationController.state.user?.token;
+                final token = dependencies.sharedPreferences.getString('auth_token');
                 if (token != null) {
                   options.headers['Authorization'] = 'Bearer $token';
                 }
@@ -87,13 +90,16 @@ final Map<String, _InitializationStep> _initializationSteps = <String, _Initiali
           );
   },
   'Initialize Pusher client': (dependencies) async {
-    final pusherClient = PusherClient();
+    final pusherClient = PusherClient(sharedPreferences: dependencies.sharedPreferences);
     await pusherClient.initilize();
     dependencies.pusherClient = pusherClient;
   },
   'Prepare authentication controller': (dependencies) {
     dependencies.authenticationController = AuthenticationController(
-      repository: AuthenticationRepositoryImpl(dio: dependencies.dio),
+      repository: AuthenticationRepositoryImpl(
+        dio: dependencies.dio,
+        sharedPreferences: dependencies.sharedPreferences,
+      ),
     );
   },
   'Restore session': (dependencies) => dependencies.authenticationController.restoreSession(),

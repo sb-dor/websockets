@@ -54,50 +54,44 @@ final class Chat$DisconnectedState extends ChatState {
 
 class ChatController extends StateController<ChatState> with SequentialControllerHandler {
   ChatController({
-    required IChatRepository repository,
+    required final IChatRepository repository,
+    required final Stream<Message> streamMessages,
     super.initialState = const ChatState.initial(),
-  }) : _repository = repository;
+  }) : _repository = repository,
+       _streamMessages = streamMessages;
 
   final IChatRepository _repository;
+  final Stream<Message> _streamMessages;
+
   StreamSubscription<Message>? _messageSub;
 
-  void connect({required Room room, required String authToken}) => handle(() async {
+  void connect({required Room room}) => handle(() async {
     setState(const ChatState.connecting());
-    await _repository.connect(authToken: authToken);
+
     final history = await _repository.getHistory(roomCode: room.code);
+
     setState(ChatState.connected(room: room, messages: history));
 
-    _messageSub = _repository
-        .subscribeToRoom(roomCode: room.code)
-        .listen(
-          (message) {
-            final current = state;
-            if (current is Chat$ConnectedState) {
-              setState(current.copyWith(messages: [...current.messages, message]));
-            }
-          },
-          onError: (Object e) {
-            if (state is Chat$ConnectedState) {
-              setState(ChatState.error(e.toString()));
-            }
-          },
-        );
-  });
-
-  void disconnect() => handle(() async {
-    await _messageSub?.cancel();
-    _messageSub = null;
-    await _repository.disconnect();
-    setState(const ChatState.disconnected());
+    _messageSub = _streamMessages.listen(
+      (message) {
+        final current = state;
+        if (current is Chat$ConnectedState) {
+          setState(current.copyWith(messages: [...current.messages, message]));
+        }
+      },
+      onError: (Object e) {
+        if (state is Chat$ConnectedState) {
+          setState(ChatState.error(e.toString()));
+        }
+        onError(e, StackTrace.current);
+      },
+    );
   });
 
   @override
   void dispose() {
     _messageSub?.cancel();
     _messageSub = null;
-    // disconnect() is a no-op if connect() is called again first,
-    // because connect() cleans up stale state at the start.
-    _repository.disconnect().ignore();
     super.dispose();
   }
 }

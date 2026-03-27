@@ -2,21 +2,16 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 class User {
-  const User({required this.id, this.name, this.email, this.token});
+  const User({required this.id, this.name, this.email});
 
-  factory User.fromMap(Map<String, Object?> map, {String? token}) => User(
-    id: map['id'] as int,
-    name: map['name'] as String?,
-    email: map['email'] as String?,
-    token: token,
-  );
+  factory User.fromMap(Map<String, Object?> map) =>
+      User(id: map['id'] as int, name: map['name'] as String?, email: map['email'] as String?);
 
   final int id;
   final String? name;
   final String? email;
 
   /// Sanctum API token — kept in memory + SharedPreferences.
-  final String? token;
 
   @override
   bool operator ==(Object other) =>
@@ -33,16 +28,10 @@ class User {
   @override
   String toString() => 'User{id: $id, name: $name, email: $email}';
 
-  User copyWith({
-    int? id,
-    ValueGetter<String?>? name,
-    ValueGetter<String?>? email,
-    ValueGetter<String?>? token,
-  }) => User(
+  User copyWith({int? id, ValueGetter<String?>? name, ValueGetter<String?>? email}) => User(
     id: id ?? this.id,
     name: name != null ? name() : this.name,
     email: email != null ? email() : this.email,
-    token: token != null ? token() : this.token,
   );
 
   Map<String, dynamic> toMap() => {'id': id, 'name': name, 'email': email};

@@ -1,11 +1,13 @@
+import 'dart:async';
+
+import 'package:dart_pusher_channels/dart_pusher_channels.dart';
 import 'package:flutter/material.dart';
-import 'package:websockets/src/common/util/screen_util.dart';
-import 'package:websockets/src/features/authentication/widget/authentication_scope.dart';
+import 'package:websockets/src/common/util/pusher_client.dart';
 import 'package:websockets/src/features/chat/controller/chat_controller.dart';
 import 'package:websockets/src/features/chat/controller/chat_messages_controller.dart';
 import 'package:websockets/src/features/chat/data/chat_repository.dart';
-import 'package:websockets/src/features/chat/widgets/desktop/chat_desktop_widget.dart';
-import 'package:websockets/src/features/chat/widgets/mobile/chat_mobile_widget.dart';
+import 'package:websockets/src/features/chat/models/message.dart';
+import 'package:websockets/src/features/chat/widgets/chat_screen_widget.dart';
 import 'package:websockets/src/features/initialization/models/dependencies.dart';
 import 'package:websockets/src/features/lobby/models/room.dart';
 
@@ -19,33 +21,38 @@ class ChatConfigWidget extends StatefulWidget {
 
   final Room room;
 
-  static ChatController controllerOf(BuildContext context) =>
-      _InheritedChatConfig.of(context).chatController;
-
-  static ChatMessagesController messagesControllerOf(BuildContext context) =>
-      _InheritedChatConfig.of(context).messagesController;
-
-  static ChatState stateOf(BuildContext context) =>
-      _InheritedChatConfig.of(context, listen: true).chatState;
-
   @override
-  State<ChatConfigWidget> createState() => _ChatConfigWidgetState();
+  State<ChatConfigWidget> createState() => ChatConfigWidgetState();
 }
 
-class _ChatConfigWidgetState extends State<ChatConfigWidget> {
-  late final ChatController _chatController;
-  late final ChatMessagesController _messagesController;
+class ChatConfigWidgetState extends State<ChatConfigWidget> {
+  /// Controllers and the shared Pusher client, initialised once in [initState].
+  late final ChatController chatController;
+  late final ChatMessagesController messagesController;
+  late final PusherClient _pusherClient;
+
+  /// Bridges incoming WebSocket events to [ChatController].
+  /// Closed in [dispose] to automatically cancel the channel subscription.
+  final StreamController<Message> messagesStreamController = StreamController<Message>.broadcast();
+  PresenceChannel? _presenceChannel;
 
   @override
   void initState() {
     super.initState();
     final deps = Dependencies.of(context);
-    final chatrepository = ChatRepositoryImpl(dio: deps.dio, pusherClient: deps.pusherClient);
-    _chatController = ChatController(repository: chatrepository)..addListener(_rebuild);
-    _messagesController = ChatMessagesController(repository: chatrepository)..addListener(_rebuild);
+    _pusherClient = deps.pusherClient;
 
-    final token = AuthenticationScope.userOf(context, listen: false)?.token ?? '';
-    _chatController.connect(room: widget.room, authToken: token);
+    final chatrepository = ChatRepositoryImpl(dio: deps.dio);
+
+    chatController = ChatController(
+      repository: chatrepository,
+      streamMessages: messagesStreamController.stream,
+    )..addListener(_rebuild);
+
+    messagesController = ChatMessagesController(repository: chatrepository)..addListener(_rebuild);
+
+    chatController.connect(room: widget.room);
+    _subscribeToRoom(room: widget.room);
   }
 
   void _rebuild() {
@@ -54,51 +61,57 @@ class _ChatConfigWidgetState extends State<ChatConfigWidget> {
 
   @override
   void dispose() {
-    _chatController
+    chatController
       ..removeListener(_rebuild)
       ..dispose();
-    _messagesController
+    messagesController
       ..removeListener(_rebuild)
       ..dispose();
+    _presenceChannel?.unsubscribe();
+    messagesStreamController.close();
     super.dispose();
   }
 
+  /// Subscribes to the presence channel for [room] and forwards
+  /// incoming `message.sent` events into [_messagesStreamController].
+  Future<void> _subscribeToRoom({required Room room}) async {
+    Future<void> initialize() async {
+      if (messagesStreamController.isClosed) return;
+      _presenceChannel = _pusherClient.client.presenceChannel(
+        'presence-room.${room.code}',
+        authorizationDelegate: _pusherClient.authDelegate,
+      );
+      _presenceChannel!.subscribe();
+      _presenceChannel!.bind('message.sent').listen((event) {
+        if (messagesStreamController.isClosed) return;
+        final data = event.tryGetDataAsMap();
+        if (data != null) messagesStreamController.add(Message.fromMap(data));
+      });
+    }
+
+    await initialize();
+  }
+
   @override
-  Widget build(BuildContext context) => _InheritedChatConfig(
-    chatController: _chatController,
-    messagesController: _messagesController,
-    chatState: _chatController.state,
-    child: context.screenSizeWhen(
-      phone: () => ChatMobileWidget(room: widget.room),
-      tablet: () => ChatMobileWidget(room: widget.room),
-      desktop: () => ChatDesktopWidget(room: widget.room),
-    ),
+  Widget build(BuildContext context) => ChatScope(
+    state: this,
+    child: ChatScreenWidget(room: widget.room),
   );
 }
 
 // ---------------------------------------------------------------------------
 
-class _InheritedChatConfig extends InheritedWidget {
-  const _InheritedChatConfig({
-    required this.chatController,
-    required this.messagesController,
-    required this.chatState,
-    required super.child,
-  });
+class ChatScope extends InheritedWidget {
+  const ChatScope({super.key, required this.state, required super.child});
 
-  final ChatController chatController;
-  final ChatMessagesController messagesController;
-  final ChatState chatState;
-
-  static _InheritedChatConfig of(BuildContext context, {bool listen = false}) {
-    final result = listen
-        ? context.dependOnInheritedWidgetOfExactType<_InheritedChatConfig>()
-        : context.getInheritedWidgetOfExactType<_InheritedChatConfig>();
-    assert(result != null, 'No _InheritedChatConfig found in context');
-    return result!;
+  static ChatConfigWidgetState of(BuildContext context) {
+    final widget = context.getElementForInheritedWidgetOfExactType<ChatScope>()?.widget;
+    assert(widget != null, 'No ChatScope found in context');
+    return (widget as ChatScope).state;
   }
 
+  final ChatConfigWidgetState state;
+
   @override
-  bool updateShouldNotify(covariant _InheritedChatConfig oldWidget) =>
-      !identical(oldWidget.chatState, chatState);
+  bool updateShouldNotify(covariant ChatScope oldWidget) => false;
 }

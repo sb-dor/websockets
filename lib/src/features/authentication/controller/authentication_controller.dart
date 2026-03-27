@@ -103,7 +103,7 @@ class AuthenticationController extends StateController<AuthenticationState>
     final user = state.user;
     if (user == null) return;
     setState(const AuthenticationState.inProgress());
-    await repository.logout(token: user.token ?? '');
+    await repository.logout();
     setState(const AuthenticationState.idle());
   });
 

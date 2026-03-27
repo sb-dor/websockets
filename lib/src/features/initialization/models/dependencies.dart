@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:websockets/src/common/model/app_metadata.dart';
 import 'package:websockets/src/common/util/pusher_client.dart';
 import 'package:websockets/src/features/authentication/controller/authentication_controller.dart';
@@ -21,6 +22,8 @@ class Dependencies {
   /// Injest dependencies to the widget tree.
   Widget inject({required Widget child, Key? key}) =>
       DependenciesScope(dependencies: this, key: key, child: child);
+
+  late final SharedPreferences sharedPreferences;
 
   /// App metadata
   late final AppMetadata metadata;

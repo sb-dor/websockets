@@ -10,17 +10,21 @@ import 'package:websockets/src/features/lobby/models/room.dart';
 /// {@template chat_mobile_widget}
 /// Mobile / tablet layout for the chat screen.
 /// {@endtemplate}
-class ChatMobileWidget extends StatefulWidget {
+class ChatScreenWidget extends StatefulWidget {
   /// {@macro chat_mobile_widget}
-  const ChatMobileWidget({required this.room, super.key});
+  const ChatScreenWidget({required this.room, super.key});
 
   final Room room;
 
   @override
-  State<ChatMobileWidget> createState() => _ChatMobileWidgetState();
+  State<ChatScreenWidget> createState() => _ChatScreenWidgetState();
 }
 
-class _ChatMobileWidgetState extends State<ChatMobileWidget> {
+class _ChatScreenWidgetState extends State<ChatScreenWidget> {
+  late final _chatScope = ChatScope.of(context);
+  late final _chatController = _chatScope.chatController;
+  late final _chatMessageController = _chatScope.messagesController;
+
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
 
@@ -35,67 +39,71 @@ class _ChatMobileWidgetState extends State<ChatMobileWidget> {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
     _inputController.clear();
-    ChatConfigWidget.messagesControllerOf(context).send(roomCode: widget.room.code, content: text);
+    _chatMessageController.send(roomCode: widget.room.code, content: text);
   }
 
   @override
   Widget build(BuildContext context) {
-    final chatState = ChatConfigWidget.stateOf(context);
-    final isSending =
-        ChatConfigWidget.messagesControllerOf(context).state is ChatMessages$SendingState;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.room.name),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: widget.room.code));
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('Room code copied!')));
-              },
-              child: Chip(label: Text(widget.room.code)),
-            ),
-          ),
-        ],
-      ),
-      body: switch (chatState) {
-        Chat$ConnectingState() || Chat$InitialState() => const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Connecting...')],
-          ),
-        ),
-        Chat$ErrorState(:final message) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(message, style: const TextStyle(color: Colors.red)),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () {
-                  final token = AuthenticationScope.userOf(context, listen: false)?.token ?? '';
-                  ChatConfigWidget.controllerOf(
-                    context,
-                  ).connect(room: widget.room, authToken: token);
-                },
-                child: const Text('Retry'),
+    return ListenableBuilder(
+      listenable: Listenable.merge([_chatController, _chatMessageController]),
+      builder: (context, child) {
+        final chatState = _chatController.state;
+        final isSending = _chatMessageController.state is ChatMessages$SendingState;
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(widget.room.name),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: widget.room.code));
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('Room code copied!')));
+                  },
+                  child: Chip(label: Text(widget.room.code)),
+                ),
               ),
             ],
           ),
-        ),
-        Chat$ConnectedState(:final messages) => Column(
-          children: [
-            Expanded(
-              child: _MessageList(messages: messages, scrollController: _scrollController),
+          body: switch (chatState) {
+            Chat$ConnectingState() || Chat$InitialState() => const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('Connecting...'),
+                ],
+              ),
             ),
-            _InputBar(controller: _inputController, isSending: isSending, onSend: _send),
-          ],
-        ),
-        _ => const SizedBox.shrink(),
+            Chat$ErrorState(:final message) => Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(message, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: () {
+                      _chatController.connect(room: widget.room);
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+            Chat$ConnectedState(:final messages) => Column(
+              children: [
+                Expanded(
+                  child: _MessageList(messages: messages, scrollController: _scrollController),
+                ),
+                _InputBar(controller: _inputController, isSending: isSending, onSend: _send),
+              ],
+            ),
+            _ => const SizedBox.shrink(),
+          },
+        );
       },
     );
   }

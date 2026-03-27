@@ -4,8 +4,10 @@ import 'package:websockets/src/features/authentication/model/user.dart';
 
 abstract interface class IAuthenticationRepository {
   Future<User> login({required String email, required String password});
+
   Future<User> register({required String name, required String email, required String password});
-  Future<void> logout({required String token});
+
+  Future<void> logout();
 
   /// Reads stored token from SharedPreferences and validates it with the backend.
   /// Returns null if no token is stored or it is no longer valid.
@@ -13,9 +15,14 @@ abstract interface class IAuthenticationRepository {
 }
 
 class AuthenticationRepositoryImpl implements IAuthenticationRepository {
-  AuthenticationRepositoryImpl({required Dio dio}) : _dio = dio;
+  AuthenticationRepositoryImpl({
+    required final Dio dio,
+    required final SharedPreferences sharedPreferences,
+  }) : _dio = dio,
+       _sharedPreferences = sharedPreferences;
 
   final Dio _dio;
+  final SharedPreferences _sharedPreferences;
   static const _tokenKey = 'auth_token';
 
   @override
@@ -47,8 +54,9 @@ class AuthenticationRepositoryImpl implements IAuthenticationRepository {
   }
 
   @override
-  Future<void> logout({required String token}) async {
+  Future<void> logout() async {
     try {
+      final token = _sharedPreferences.getString(_tokenKey);
       await _dio.post<void>(
         '/api/auth/logout',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
@@ -100,7 +108,7 @@ class AuthenticationFakeRepositoryImpl implements IAuthenticationRepository {
   Future<User> register({required String name, required String email, required String password}) =>
       Future.value(const User(id: -1));
   @override
-  Future<void> logout({required String token}) => Future.value();
+  Future<void> logout() => Future.value();
 
   /// Reads stored token from SharedPreferences and validates it with the backend.
   /// Returns null if no token is stored or it is no longer valid.

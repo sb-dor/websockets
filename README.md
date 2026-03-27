@@ -34,6 +34,64 @@ Make sure the Laravel HTTP server (port 8000) and Reverb WebSocket server (port 
 
 ---
 
+## How channel authentication works
+
+Presence channels are private — Reverb won't allow a subscription without proof that the user is allowed in. The flow is:
+
+```
+Flutter → Reverb: "I want to join presence-room.ABC123"
+Reverb  → Flutter: "Prove you're allowed. Hit your auth endpoint."
+Flutter → Laravel POST /api/broadcasting/auth  (with Bearer token)
+Laravel → verifies token, signs response with REVERB_APP_SECRET (HMAC)
+Flutter → Reverb: "Here's the signed proof"
+Reverb  → verifies signature → allows subscription
+```
+
+`Broadcast::routes(...)` in Laravel's `routes/api.php` automatically registers `POST /api/broadcasting/auth`. The channel authorization logic lives in `routes/channels.php`.
+
+> **Important:** Laravel strips the `presence-` / `private-` prefix before matching `channels.php`. Flutter uses `presence-room.{code}`, so `channels.php` must define `room.{code}` — not `presence-room.{code}`.
+
+### Channel types
+
+| | Auth required | Knows who's subscribed | Name prefix |
+|-|---|---|---|
+| Public | No | No | `channel-name` |
+| Private | Yes | No | `private-` |
+| Presence | Yes | Yes | `presence-` |
+
+Private and presence use the exact same auth mechanism — same endpoint, same HMAC signing, same `channels.php` logic. The only differences are:
+- **Private** returns `true/false` from `channels.php`
+- **Presence** returns a user info array (e.g. `['id' => 1, 'name' => 'John']`) — Reverb uses this to maintain a live member list and fires `pusher:member_added` / `pusher:member_removed` events when users join or leave
+
+This app uses presence because the chat room needs to know which users are currently online. If you only needed messaging without a member list, private would be sufficient.
+
+### The prefix IS the declaration
+
+The channel name prefix is how both the client library and Reverb determine the channel type — there is no separate config. The prefix must be consistent on both sides:
+
+**Flutter (dart_pusher_channels):**
+```dart
+_client.publicChannel('room.$roomCode')            // public  — no auth
+_client.privateChannel('private-room.$roomCode')   // private — auth required
+_client.presenceChannel('presence-room.$roomCode') // presence — auth + member tracking
+```
+
+**Laravel (channels.php):**
+
+Laravel **strips the prefix** before matching, so `private-room.ABC` and `presence-room.ABC` both match the same base rule:
+```php
+Broadcast::channel('room.{code}', function ($user, $code) {
+    // return true/false  → works as a private channel
+    // return array       → works as a presence channel (member info)
+});
+```
+
+Public channels don't need a `channels.php` entry — they require no auth.
+
+No prefix = public, `private-` = private, `presence-` = presence. The prefix is for the client and Reverb only — Laravel always sees the base name.
+
+---
+
 ## Rename the project (optional)
 
 ```bash
