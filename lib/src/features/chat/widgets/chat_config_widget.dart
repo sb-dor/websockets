@@ -47,26 +47,18 @@ class ChatConfigWidgetState extends State<ChatConfigWidget> {
     chatController = ChatController(
       repository: chatrepository,
       streamMessages: messagesStreamController.stream,
-    )..addListener(_rebuild);
+    );
 
-    messagesController = ChatMessagesController(repository: chatrepository)..addListener(_rebuild);
+    messagesController = ChatMessagesController(repository: chatrepository);
 
     chatController.connect(room: widget.room);
     _subscribeToRoom(room: widget.room);
   }
 
-  void _rebuild() {
-    if (mounted) setState(() {});
-  }
-
   @override
   void dispose() {
-    chatController
-      ..removeListener(_rebuild)
-      ..dispose();
-    messagesController
-      ..removeListener(_rebuild)
-      ..dispose();
+    chatController.dispose();
+    messagesController.dispose();
     _presenceChannel?.unsubscribe();
     messagesStreamController.close();
     super.dispose();
