@@ -38,7 +38,7 @@ class AuthenticationRepositoryImpl implements IAuthenticationRepository {
     final data = response.data!;
     final token = data['token'] as String;
     await _saveToken(token);
-    return User.fromMap(data['user'] as Map<String, Object?>, token: token);
+    return User.fromMap(data['user'] as Map<String, Object?>);
   }
 
   @override
@@ -50,7 +50,7 @@ class AuthenticationRepositoryImpl implements IAuthenticationRepository {
     final data = response.data!;
     final token = data['token'] as String;
     await _saveToken(token);
-    return User.fromMap(data['user'] as Map<String, Object?>, token: token);
+    return User.fromMap(data['user'] as Map<String, Object?>);
   }
 
   @override
@@ -77,7 +77,7 @@ class AuthenticationRepositoryImpl implements IAuthenticationRepository {
         '/api/auth/me',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-      return User.fromMap(response.data!, token: token);
+      return User.fromMap(response.data!);
     } on DioException {
       await _clearToken();
       return null;
