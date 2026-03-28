@@ -11,8 +11,8 @@ import 'package:websockets/src/features/chat/models/chat_event.dart';
 /// Call [dispose] when the room session ends to cancel subscriptions and close the stream.
 class ChatSession {
   ChatSession({required PusherClient pusherClient, required String roomCode})
-      : _pusherClient = pusherClient,
-        _roomCode = roomCode;
+    : _pusherClient = pusherClient,
+      _roomCode = roomCode;
 
   final PusherClient _pusherClient;
   final String _roomCode;

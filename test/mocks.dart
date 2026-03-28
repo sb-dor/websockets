@@ -1,4 +1,5 @@
 import 'package:dart_pusher_channels/dart_pusher_channels.dart';
+import 'package:dio/dio.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:websockets/src/common/util/pusher_client.dart';
 import 'package:websockets/src/features/authentication/data/authentication_repository.dart';
@@ -46,6 +47,12 @@ class FakePusherClient extends Fake implements PusherClient {
   EndpointAuthorizableChannelTokenAuthorizationDelegate<
       PresenceChannelAuthorizationData> get authDelegate => _authDelegate;
 }
+
+// ---------------------------------------------------------------------------
+// Dio
+// ---------------------------------------------------------------------------
+
+class MockDio extends Mock implements Dio {}
 
 // ---------------------------------------------------------------------------
 // Repositories

@@ -39,10 +39,8 @@ class ChatConfigWidgetState extends State<ChatConfigWidget> {
     super.initState();
     final deps = Dependencies.of(context);
 
-    _session = ChatSession(
-      pusherClient: deps.pusherClient,
-      roomCode: widget.room.code,
-    )..subscribe();
+    _session = ChatSession(pusherClient: deps.pusherClient, roomCode: widget.room.code)
+      ..subscribe();
 
     final repo = ChatRepositoryImpl(dio: deps.dio);
 
