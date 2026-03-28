@@ -68,7 +68,7 @@ dependencies:
   l: ^5.0.0
 
   # Desktop
-  win32: ^5.11.0
+  win32: ^6.0.0
   window_manager: ^0.5.1
 
   # State management
