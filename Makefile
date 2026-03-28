@@ -85,6 +85,7 @@ e2e: integration
 #publish: generate ## Publish the package
 #	@yes | dart pub publish
 
+# https://stackoverflow.com/questions/50789578/how-can-the-code-coverage-data-from-flutter-tests-be-displayed
 .PHONY: coverage
 coverage: get ## Generate the coverage report
 	@dart pub global activate coverage
