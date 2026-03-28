@@ -1,20 +1,17 @@
-import 'dart:async';
-
-import 'package:dart_pusher_channels/dart_pusher_channels.dart';
 import 'package:flutter/material.dart';
-import 'package:websockets/src/common/util/pusher_client.dart';
 import 'package:websockets/src/features/chat/controller/chat_controller.dart';
 import 'package:websockets/src/features/chat/controller/chat_messages_controller.dart';
 import 'package:websockets/src/features/chat/controller/chat_typing_controller.dart';
 import 'package:websockets/src/features/chat/data/chat_repository.dart';
-import 'package:websockets/src/features/chat/models/chat_event.dart';
+import 'package:websockets/src/features/chat/logic/chat_session.dart';
 import 'package:websockets/src/features/chat/widgets/chat_screen_widget.dart';
 import 'package:websockets/src/features/initialization/models/dependencies.dart';
 import 'package:websockets/src/features/lobby/models/room.dart';
 
 /// {@template chat_config_widget}
-/// Owns [ChatController] and [ChatMessagesController].
-/// Connects to WebSocket on init and disconnects on dispose.
+/// Owns [ChatController], [ChatTypingController], and [ChatMessagesController].
+/// Creates a [ChatSession] on init to manage the Pusher channel and event stream,
+/// and disposes everything on widget removal.
 /// {@endtemplate}
 class ChatConfigWidget extends StatefulWidget {
   /// {@macro chat_config_widget}
@@ -27,81 +24,51 @@ class ChatConfigWidget extends StatefulWidget {
 }
 
 class ChatConfigWidgetState extends State<ChatConfigWidget> {
-  /// Controllers and the shared Pusher client, initialised once in [initState].
   late final ChatController chatController;
   late final ChatTypingController chatTypingController;
   late final ChatMessagesController messagesController;
-  late final PusherClient _pusherClient;
 
-  /// Bridges incoming WebSocket events to [ChatController].
-  /// Closed in [dispose] to automatically cancel the channel subscription.
-  /// More information about why I did this way you can find in this telegram conversion (read all messages starting from first link)
+  /// Manages the Pusher presence channel and exposes a shared [Stream<ChatEvent>].
+  /// Read more about why a shared stream is used here (read all messages from first link):
   /// 1. https://t.me/ru_dart/278066
   /// 2. https://t.me/ru_dart/278116
-  final StreamController<ChatEvent> messagesStreamController =
-      StreamController<ChatEvent>.broadcast();
-  StreamSubscription<ChannelReadEvent>? _messageSendSubs;
-  StreamSubscription<ChannelReadEvent>? _messageTypingSubs;
-  PresenceChannel? _presenceChannel;
+  late final ChatSession _session;
 
   @override
   void initState() {
     super.initState();
     final deps = Dependencies.of(context);
-    _pusherClient = deps.pusherClient;
 
-    final chatrepository = ChatRepositoryImpl(dio: deps.dio);
+    _session = ChatSession(
+      pusherClient: deps.pusherClient,
+      roomCode: widget.room.code,
+    )..subscribe();
+
+    final repo = ChatRepositoryImpl(dio: deps.dio);
 
     chatController = ChatController(
-      repository: chatrepository,
-      streamMessages: messagesStreamController.stream,
+      repository: repo,
+      streamMessages: _session.events,
       room: widget.room,
     );
     chatTypingController = ChatTypingController(
-      chatEvents: messagesStreamController.stream,
-      chatRepository: chatrepository,
+      chatEvents: _session.events,
+      chatRepository: repo,
       room: widget.room,
     );
-    messagesController = ChatMessagesController(repository: chatrepository);
+    messagesController = ChatMessagesController(repository: repo);
 
     chatController.connect();
     chatTypingController.connect();
-    _subscribeToRoom();
   }
 
   @override
   void dispose() {
     chatController.dispose();
+    chatTypingController.dispose();
     messagesController.dispose();
-    _presenceChannel?.unsubscribe();
-    messagesStreamController.close();
-    _messageSendSubs?.cancel();
-    _messageTypingSubs?.cancel();
+    _session.dispose();
     super.dispose();
-  }
-
-  /// Subscribes to the presence channel for [room] and forwards
-  /// incoming `message.sent` events into [_messagesStreamController].
-  /// Read more about this
-  /// https://pub.dev/packages/dart_pusher_channels#binding-to-events
-  Future<void> _subscribeToRoom() async {
-    if (messagesStreamController.isClosed) return;
-
-    _presenceChannel = _pusherClient.client.presenceChannel(
-      'presence-room.${widget.room.code}',
-      authorizationDelegate: _pusherClient.authDelegate,
-    );
-    _presenceChannel!.subscribe();
-    _messageSendSubs = _presenceChannel!.bind('message.sent').listen((event) {
-      if (messagesStreamController.isClosed) return;
-      final data = event.tryGetDataAsMap();
-      if (data != null) messagesStreamController.add(Message.fromMap(data));
-    });
-    _messageSendSubs = _presenceChannel!.bind('message.typing').listen((event) {
-      final data = event.tryGetDataAsMap();
-      print('typing: $data');
-      if (data != null) messagesStreamController.add(TypingMessage.fromJson(data));
-    });
   }
 
   @override
