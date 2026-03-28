@@ -6,9 +6,9 @@ import 'package:websockets/src/features/lobby/widgets/lobby_config_widget.dart';
 /// {@template lobby_mobile_widget}
 /// Mobile / tablet layout for the lobby screen.
 /// {@endtemplate}
-class LobbyMobileWidget extends StatelessWidget {
+class LobbyScreenWidget extends StatelessWidget {
   /// {@macro lobby_mobile_widget}
-  const LobbyMobileWidget({super.key});
+  const LobbyScreenWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +47,7 @@ class LobbyMobileWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           FloatingActionButton.extended(
+            key: const Key('joinRoomFab'),
             heroTag: 'join',
             onPressed: () => _showJoinDialog(context, controller),
             icon: const Icon(Icons.login),
@@ -55,6 +56,7 @@ class LobbyMobileWidget extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           FloatingActionButton.extended(
+            key: const Key('createRoomFab'),
             heroTag: 'create',
             onPressed: () => _showCreateDialog(context, controller),
             icon: const Icon(Icons.add),
@@ -72,6 +74,7 @@ class LobbyMobileWidget extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Create Room'),
         content: TextField(
+          key: const Key('roomNameField'),
           controller: ctrl,
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Room name', border: OutlineInputBorder()),
@@ -101,6 +104,7 @@ class LobbyMobileWidget extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Join Room'),
         content: TextField(
+          key: const Key('roomCodeField'),
           controller: ctrl,
           autofocus: true,
           maxLength: 8,
@@ -156,6 +160,7 @@ class _RoomList extends StatelessWidget {
       itemBuilder: (context, index) {
         final room = rooms[index];
         return Card(
+          key: ValueKey('room_${room.code}'),
           child: ListTile(
             leading: const CircleAvatar(child: Icon(Icons.chat)),
             title: Text(room.name),

@@ -95,6 +95,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         const SizedBox(height: 24),
                         if (!_isLogin) ...[
                           TextField(
+                            key: const Key('nameField'),
                             controller: _nameController,
                             textCapitalization: TextCapitalization.words,
                             enabled: !isLoading,
@@ -108,6 +109,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           const SizedBox(height: 16),
                         ],
                         TextField(
+                          key: const Key('emailField'),
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           autocorrect: false,
@@ -122,6 +124,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         const SizedBox(height: 16),
                         TextField(
+                          key: const Key('passwordField'),
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           enabled: !isLoading,
@@ -149,6 +152,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         ],
                         const SizedBox(height: 24),
                         FilledButton(
+                          key: const Key('submitButton'),
                           onPressed: (!isLoading && _isValid) ? _submit : null,
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.teal,

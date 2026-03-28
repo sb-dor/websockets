@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:octopus/octopus.dart';
-import 'package:websockets/src/common/util/screen_util.dart';
 import 'package:websockets/src/features/initialization/models/dependencies.dart';
 import 'package:websockets/src/features/lobby/controller/lobby_controller.dart';
-import 'package:websockets/src/features/lobby/widgets/desktop/lobby_desktop_widget.dart';
-import 'package:websockets/src/features/lobby/widgets/mobile/lobby_mobile_widget.dart';
+import 'package:websockets/src/features/lobby/widgets/lobby_screen_widget.dart';
 
 /// {@template lobby_config_widget}
 /// Owns the [LobbyController] and injects it into the subtree.
@@ -75,11 +73,7 @@ class _LobbyConfigWidgetState extends State<LobbyConfigWidget> {
   Widget build(BuildContext context) => _InheritedLobbyConfig(
     controller: _controller,
     state: _controller.state,
-    child: context.screenSizeWhen(
-      phone: () => const LobbyMobileWidget(),
-      tablet: () => const LobbyMobileWidget(),
-      desktop: () => const LobbyDesktopWidget(),
-    ),
+    child: const LobbyScreenWidget(),
   );
 }
 

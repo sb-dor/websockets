@@ -240,6 +240,7 @@ class _InputBarState extends State<_InputBar> {
             children: [
               Expanded(
                 child: TextField(
+                  key: const Key('messageInput'),
                   controller: _inputController,
                   enabled: !isSending,
                   maxLines: null,
@@ -255,6 +256,7 @@ class _InputBarState extends State<_InputBar> {
               ),
               const SizedBox(width: 8),
               IconButton.filled(
+                key: const Key('sendButton'),
                 onPressed: isSending ? null : _send,
                 icon: isSending
                     ? const SizedBox(
