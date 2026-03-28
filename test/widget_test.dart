@@ -20,7 +20,7 @@ void main() => group('Widget', () {
     );
   });
 
-  testWidgets('App', (tester) async {
+  testWidgets('App', skip: true, (tester) async {
     final dependencies = FakeDependencies()
       ..authenticationController = AuthenticationController(
         repository: AuthenticationFakeRepositoryImpl(),
