@@ -34,6 +34,24 @@ Make sure the Laravel HTTP server (port 8000) and Reverb WebSocket server (port 
 
 ---
 
+## What is Pusher?
+
+[pusher.com](https://pusher.com) is a **paid cloud service** that invented the Pusher WebSocket protocol — the message format, channel naming rules (`private-`, `presence-`), the auth flow, and everything around it. It became so widely adopted that the protocol itself turned into an open standard.
+
+**Laravel Reverb** is a self-hosted WebSocket server that implements the same Pusher protocol. Instead of paying pusher.com to run the servers, you run your own — but it speaks the exact same protocol so any Pusher-compatible client works with it.
+
+**`dart_pusher_channels`** is a Flutter client library that implements the Pusher protocol. It doesn't care whether it's talking to pusher.com or your own Reverb server.
+
+```
+pusher.com           ← original paid cloud service (they manage servers)
+Laravel Reverb       ← self-hosted, same protocol, you manage the server  ← used here
+dart_pusher_channels ← Flutter client, speaks Pusher protocol
+```
+
+Reverb is free because you provide the hardware. Pusher.com charges because they do.
+
+---
+
 ## How channel authentication works
 
 Presence channels are private — Reverb won't allow a subscription without proof that the user is allowed in. The flow is:

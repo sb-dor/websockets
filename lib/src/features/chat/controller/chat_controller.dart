@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:control/control.dart';
 import 'package:flutter/foundation.dart';
 import 'package:websockets/src/features/chat/data/chat_repository.dart';
-import 'package:websockets/src/features/chat/models/message.dart';
+import 'package:websockets/src/features/chat/models/chat_event.dart';
 import 'package:websockets/src/features/lobby/models/room.dart';
 
 @immutable
@@ -55,28 +55,33 @@ final class Chat$DisconnectedState extends ChatState {
 class ChatController extends StateController<ChatState> with SequentialControllerHandler {
   ChatController({
     required final IChatRepository repository,
-    required final Stream<Message> streamMessages,
+    required final Stream<ChatEvent> streamMessages,
+    required final Room room,
     super.initialState = const ChatState.initial(),
   }) : _repository = repository,
-       _streamMessages = streamMessages;
+       _streamMessages = streamMessages,
+       _room = room;
 
   final IChatRepository _repository;
-  final Stream<Message> _streamMessages;
+  final Stream<ChatEvent> _streamMessages;
+  final Room _room;
 
-  StreamSubscription<Message>? _messageSub;
+  StreamSubscription<ChatEvent>? _messageSub;
 
-  void connect({required Room room}) => handle(() async {
+  void connect() => handle(() async {
     setState(const ChatState.connecting());
 
-    final history = await _repository.getHistory(roomCode: room.code);
+    final history = await _repository.getHistory(roomCode: _room.code);
 
-    setState(ChatState.connected(room: room, messages: history));
+    setState(ChatState.connected(room: _room, messages: history));
 
     _messageSub = _streamMessages.listen(
       (message) {
-        final current = state;
-        if (current is Chat$ConnectedState) {
-          setState(current.copyWith(messages: [...current.messages, message]));
+        if (message is Message) {
+          final current = state;
+          if (current is Chat$ConnectedState) {
+            setState(current.copyWith(messages: [...current.messages, message]));
+          }
         }
       },
       onError: (Object e) {

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:websockets/src/features/authentication/widget/authentication_scope.dart';
 import 'package:websockets/src/features/chat/controller/chat_controller.dart';
 import 'package:websockets/src/features/chat/controller/chat_messages_controller.dart';
-import 'package:websockets/src/features/chat/models/message.dart';
+import 'package:websockets/src/features/chat/controller/chat_typing_controller.dart';
+import 'package:websockets/src/features/chat/models/chat_event.dart';
 import 'package:websockets/src/features/chat/widgets/chat_config_widget.dart';
 import 'package:websockets/src/features/lobby/models/room.dart';
 
@@ -23,35 +26,33 @@ class ChatScreenWidget extends StatefulWidget {
 class _ChatScreenWidgetState extends State<ChatScreenWidget> {
   late final _chatScope = ChatScope.of(context);
   late final _chatController = _chatScope.chatController;
-  late final _chatMessageController = _chatScope.messagesController;
+  late final _chatTypingController = _chatScope.chatTypingController;
 
-  final _inputController = TextEditingController();
   final _scrollController = ScrollController();
 
   @override
   void dispose() {
-    _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _send() {
-    final text = _inputController.text.trim();
-    if (text.isEmpty) return;
-    _inputController.clear();
-    _chatMessageController.send(roomCode: widget.room.code, content: text);
   }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([_chatController, _chatMessageController]),
+      listenable: Listenable.merge([_chatController, _chatTypingController]),
       builder: (context, child) {
         final chatState = _chatController.state;
-        final isSending = _chatMessageController.state is ChatMessages$SendingState;
+        final chatTypingState = _chatTypingController.state;
         return Scaffold(
           appBar: AppBar(
-            title: Text(widget.room.name),
+            centerTitle: false,
+            title: switch (chatTypingState) {
+              ChatTypingState$Idle() => Text(widget.room.name),
+              ChatTypingState$Processing(:final typingMessages) => Text(
+                typingMessages.map((el) => '${el.user.name} is typing...').join(' '),
+                style: const TextStyle(color: Colors.blue),
+              ),
+            },
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 12),
@@ -86,7 +87,7 @@ class _ChatScreenWidgetState extends State<ChatScreenWidget> {
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: () {
-                      _chatController.connect(room: widget.room);
+                      _chatController.connect();
                     },
                     child: const Text('Retry'),
                   ),
@@ -98,7 +99,7 @@ class _ChatScreenWidgetState extends State<ChatScreenWidget> {
                 Expanded(
                   child: _MessageList(messages: messages, scrollController: _scrollController),
                 ),
-                _InputBar(controller: _inputController, isSending: isSending, onSend: _send),
+                _InputBar(room: widget.room),
               ],
             ),
             _ => const SizedBox.shrink(),
@@ -165,7 +166,7 @@ class _MessageBubble extends StatelessWidget {
           children: [
             if (!isMe)
               Text(
-                message.user.name,
+                message.user.name ?? '',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: Colors.teal.shade200,
                   fontWeight: FontWeight.bold,
@@ -179,47 +180,95 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-class _InputBar extends StatelessWidget {
-  const _InputBar({required this.controller, required this.isSending, required this.onSend});
+class _InputBar extends StatefulWidget {
+  const _InputBar({required this.room});
 
-  final TextEditingController controller;
-  final bool isSending;
-  final VoidCallback onSend;
+  final Room room;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: !isSending,
-              maxLines: null,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => onSend(),
-              decoration: const InputDecoration(
-                hintText: 'Type a message…',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(24))),
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+  State<_InputBar> createState() => _InputBarState();
+}
+
+class _InputBarState extends State<_InputBar> {
+  late final _chatScope = ChatScope.of(context);
+  late final _chatMessageController = _chatScope.messagesController;
+  late final _chatTypingController = _chatScope.chatTypingController;
+  final _inputController = TextEditingController();
+
+  bool _messageTyping = false;
+  Timer? _debounceTimer;
+
+  @override
+  void dispose() {
+    _inputController.dispose();
+    _stopTyping();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _send() {
+    final text = _inputController.text.trim();
+    if (text.isEmpty) return;
+    _inputController.clear();
+    _chatMessageController.send(roomCode: widget.room.code, content: text);
+  }
+
+  void _typing() {
+    if (!_messageTyping) {
+      _messageTyping = true;
+      _chatTypingController.typing();
+    }
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(seconds: 2), _stopTyping);
+  }
+
+  void _stopTyping() {
+    _messageTyping = false;
+    _chatTypingController.stopTyping();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _chatMessageController,
+    builder: (context, child) {
+      final isSending = _chatMessageController.state is ChatMessages$SendingState;
+
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _inputController,
+                  enabled: !isSending,
+                  maxLines: null,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
+                  onChanged: (_) => _typing(),
+                  decoration: const InputDecoration(
+                    hintText: 'Type a message…',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(24))),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: isSending ? null : _send,
+                icon: isSending
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.send),
+                style: IconButton.styleFrom(backgroundColor: Colors.teal),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          IconButton.filled(
-            onPressed: isSending ? null : onSend,
-            icon: isSending
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.send),
-            style: IconButton.styleFrom(backgroundColor: Colors.teal),
-          ),
-        ],
-      ),
-    ),
+        ),
+      );
+    },
   );
 }
